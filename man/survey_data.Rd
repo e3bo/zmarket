@@ -16,4 +16,10 @@ survey_data
 \description{
 A dataset from a Gradient Metrics survey designed to identify a group of individuals likely to download an app designed to improve sleep.
 }
+\details{
+Most variables have label attributes describing the question from which they originate.
+}
+\examples{
+lapply(survey_data, attr, "label")
+}
 \keyword{datasets}
