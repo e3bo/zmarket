@@ -7,7 +7,9 @@
 #' @examples
 #' with(experiment_data, index(duration, social_proof))
 #' with(survey_data, index(s_gender, s_age))
+#' plot(with(survey_data, index(s_gender, s_age)))
 index <- function(grouping_variable, index_variable) {
-  table(index_variable, grouping_variable) /
-    as.numeric(table(index_variable)) * 100
+  tmp <- table(index_variable, grouping_variable) /
+    as.numeric(table(index_variable)) * length(grouping_variable)
+  t(t(tmp) / as.numeric(table(grouping_variable))) * 100
 }
