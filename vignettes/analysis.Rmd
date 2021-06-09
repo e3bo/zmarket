@@ -1,6 +1,7 @@
 ---
 title: "analysis"
 output: rmarkdown::html_vignette
+bibliography: bib.json
 vignette: >
   %\VignetteIndexEntry{analysis}
   %\VignetteEngine{knitr::rmarkdown}
@@ -18,7 +19,11 @@ knitr::opts_chunk$set(
 library(zmarket)
 library(dplyr)
 library(magrittr)
+library(purrr)
 ```
+
+
+This document contains a simple exploration and modeling of the Sleep App data provided by Gradient Metrics. Our main sources are Harrel [-@harrel] and Rao [-@rao]. 
 
 # Exploratory data analysis
 
@@ -26,7 +31,7 @@ To examine the experimental design, we calculate an index of all levels of discr
 
 
 ```{r results='asis'}
-discrete_vars <- experiment_data %>% dplyr::select(duration:social_proof)
+discrete_vars <- experiment_data %>% select(duration:social_proof)
 indtabs <- list()
 i <- 1
 cat("## Tables of indexes\n Groups levels are on rows and index levels are on columns.")
@@ -40,6 +45,19 @@ for(v1 in names(discrete_vars)){
 ```
 
 All index values are close to 100, which means that these variables do not have strong correlations in the overall data set.
+
+## Further exploration of design
+
+Next we reproduce a result from the assignment to allow us to comment on it.
+
+```{r}
+experiment_data %>%
+  select(duration:social_proof) %>%
+  map(unique) %>%  map(~t(t(.x)))
+```
+
+There are 6 attributes in the experiment with between three and six levels.
+
 
 ## Removal of validation set
 
@@ -55,3 +73,5 @@ wdat <- experiment_data %>% group_by(response_id) %>% slice_sample(n = 10)
 
 
 # Modeling
+
+# References

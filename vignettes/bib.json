@@ -1,0 +1,61 @@
+[
+	{
+		"id": "harrel",
+		"type": "book",
+		"abstract": "Many texts are excellent sources of knowledge about individual statistical tools, but the art of data analysis is about choosing and using multiple tools. Instead of presenting isolated techniques, this text emphasizes problem solving strategies that address the many issues arising when developing multivariable models using real data and not standard textbook examples. It includes imputation methods for dealing with missing data effectively, methods for dealing with nonlinear relationships and for making the estimation of transformations a formal part of the modeling process, methods for dealing with \"too many variables to analyze and not enough observations,\" and powerful model validation techniques based on the bootstrap. This text realistically deals with model uncertainty and its effects on inference to achieve \"safe data mining\".",
+		"edition": "Corrected edition",
+		"event-place": "New York",
+		"ISBN": "978-0-387-95232-1",
+		"language": "English",
+		"number-of-pages": "571",
+		"publisher": "Springer",
+		"publisher-place": "New York",
+		"source": "Amazon.com",
+		"title": "Regression Modeling Strategies: With Applications to Linear Models, Logistic Regression, and Survival Analysis",
+		"title-short": "Regression Modeling Strategies",
+		"author": [
+			{
+				"family": "Harrell",
+				"given": "Frank E."
+			}
+		],
+		"issued": {
+			"date-parts": [
+				[
+					"2001",
+					1,
+					10
+				]
+			]
+		}
+	},
+	{
+		"id": "rao",
+		"type": "book",
+		"abstract": "Conjoint analysis is probably the most significant development in marketing research in the past few decades. It can be described as a set of techniques ideally suited to studying customers’ decision-making processes and determining tradeoffs. Though this book is oriented towards methods and applications of conjoint analysis in marketing, conjoint methods are also applicable for other business and social sciences.After an introduction to the basic ideas of conjoint analysis the book describes the steps involved in designing a ratings-based conjoint study, it covers various methods for estimating partworth functions from preference ratings data, and dedicates a chapter on methods of design and analysis of conjoint-based choice experiments, where choice is measured directly. Chapter 5 describes several methods for handling a large number of attributes. Chapters 6 through 8 discuss the use of conjoint analysis for specific applications like product and service design or product line decisions, product positioning and market segmentation decisions, and pricing decisions. Chapter 9 collates miscellaneous applications of marketing mix including marketing resource allocation or store location decisions. Finally, Chapter 10 reviews more recent developments in experimental design and data analysis and presents an assessment of future developments.",
+		"edition": "2014th edition",
+		"event-place": "New York",
+		"ISBN": "978-3-540-87752-3",
+		"language": "English",
+		"number-of-pages": "408",
+		"publisher": "Springer",
+		"publisher-place": "New York",
+		"source": "Amazon",
+		"title": "Applied Conjoint Analysis",
+		"author": [
+			{
+				"family": "Rao",
+				"given": ""
+			}
+		],
+		"issued": {
+			"date-parts": [
+				[
+					"2014",
+					3,
+					12
+				]
+			]
+		}
+	}
+]
