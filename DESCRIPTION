@@ -21,6 +21,7 @@ Suggests:
     rmarkdown (>= 2.8),
     magrittr (>= 2.0.1),
     dplyr (>= 1.0.6),
-    purrr (>= 0.3.4)
+    purrr (>= 0.3.4),
+    ggplot2 (>= 3.3.3)
 Config/testthat/edition: 3
 VignetteBuilder: knitr

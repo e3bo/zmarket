@@ -18,6 +18,7 @@ knitr::opts_chunk$set(
 ```{r setup}
 library(zmarket)
 library(dplyr)
+library(ggplot2)
 library(magrittr)
 library(purrr)
 ```
@@ -44,19 +45,19 @@ for(v1 in names(discrete_vars)){
 }
 ```
 
-All index values are close to 100, which means that these variables do not have strong correlations in the overall data set.
+All index values are close to 100, which means that these variables do not have strong correlations in the overall data set. That is consistent with the description of the experiment as 12 random permutations of a message with 6 attributes.
 
 ## Further exploration of design
 
 Next we reproduce a result from the assignment to allow us to comment on it.
 
 ```{r}
-experiment_data %>%
+(levs <- experiment_data %>%
   select(duration:social_proof) %>%
-  map(unique) %>%  map(~t(t(.x)))
+  map(unique) %>%  map(~t(t(.x))))
 ```
 
-There are 6 attributes in the experiment with between three and six levels.
+There are 6 attributes in the experiment with between three and six levels. If we use a dummy variable encoding of each attribute, our model would have `r sum(map_dbl(levs, ~nrow(.x) - 1))` parameters. Therefore, it is not reasonable for us to fit such a model for each individual respondent. Therefore, a key modeling challenge will be fit models with relatively large numbers of parameters from relatively small numbers of observations. Our main tools will be to try to pool individuals into homogeneous groups and fit models for those groups and to apply penalties to model parameters to reduce their estimation variance.
 
 
 ## Removal of validation set
@@ -69,8 +70,20 @@ wdat <- experiment_data %>% group_by(response_id) %>% slice_sample(n = 10)
 
 ```
 
+## Examination or response variable
 
+To get an idea about the heterogeneity in among respondents, we'll look at some summary statistics of the distribution of their answers across the ten tasks in our working data.
 
+```{r}
+
+rstats <- wdat %>% group_by(response_id) %>% summarise(mean_ans = mean(answer), sd_ans = sd(answer)) 
+
+rstats %>% ggplot(aes(x = mean_ans)) + geom_histogram()
+rstats %>% ggplot(aes(x = sd_ans)) + geom_histogram()
+
+```
+
+The mean response appears to follow a mixture distribution. A certain fraction of about 250 / 892 of respondents answered 1 ("Very unlikely") in all 12 tasks. Another 70 or so respondents also provided the same answer to all tasks, resulting in 320 respondents with an standard deviation of zero. Models for these groups of constant-response individuals could be very simple, if they could be accurately identified. On balance the mean answers from the respondents that did not always answer 1 seem to be uniformly distributed. These individuals may be responding in an interesting way to some attributes in the experiment.
 
 # Modeling
 
