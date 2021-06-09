@@ -1,0 +1,40 @@
+---
+title: "Analysis of SleepApp data"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{analysis}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>"
+)
+```
+
+```{r setup}
+library(zmarket)
+library(dplyr)
+library(magrittr)
+```
+
+# Exploratory data analysis
+
+To examine the experimental design, we calculate the index of all levels of discrete variables using all other discrete varibles as grouping variables.
+
+
+```{r}
+discrete_vars <- experiment_data %>% dplyr::select(duration:social_proof)
+for(v1 in names(discrete_vars)){
+  for(v2 in setdiff(names(discrete_vars), v1)){
+    index(experiment_data[[v1]], experiment_data[[v2]]) %>% print()
+  }
+}
+
+```
+
+All index values are close to 100, which means that these variables do not have strong correlations in the overall data set.
+
+# Modeling
