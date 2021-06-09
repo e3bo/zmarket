@@ -1,5 +1,5 @@
 ---
-title: "Analysis of SleepApp data"
+title: "analysis"
 output: rmarkdown::html_vignette
 vignette: >
   %\VignetteIndexEntry{analysis}
@@ -22,19 +22,36 @@ library(magrittr)
 
 # Exploratory data analysis
 
-To examine the experimental design, we calculate the index of all levels of discrete variables using all other discrete varibles as grouping variables.
+To examine the experimental design, we calculate an index of all levels of discrete variables using all other discrete variables as grouping variables. For a level of a discrete variable, this index with respect to the level of another grouping variable is equal to its frequency in that level of the grouping variable divided by its frequency across all levels of the grouping variable times 100.
 
 
-```{r}
+```{r results='asis'}
 discrete_vars <- experiment_data %>% dplyr::select(duration:social_proof)
+indtabs <- list()
+i <- 1
+cat("## Tables of indexes\n Groups levels are on rows and index levels are on columns.")
 for(v1 in names(discrete_vars)){
   for(v2 in setdiff(names(discrete_vars), v1)){
-    index(experiment_data[[v1]], experiment_data[[v2]]) %>% print()
+    indtabs[[i]] <- index(experiment_data[[v1]], experiment_data[[v2]])
+    print(knitr::kable(indtabs[[i]]))
+    i <- i + 1
   }
 }
-
 ```
 
 All index values are close to 100, which means that these variables do not have strong correlations in the overall data set.
+
+## Removal of validation set
+
+To avoid overfitting, we remove 2 tasks from each respondent. We will later use this reserved data for model validation.
+
+```{r}
+set.seed(1)
+wdat <- experiment_data %>% group_by(response_id) %>% slice_sample(n = 10)
+
+```
+
+
+
 
 # Modeling
