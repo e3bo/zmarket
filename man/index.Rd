@@ -20,4 +20,5 @@ Calculate the index of a variable
 \examples{
 with(experiment_data, index(duration, social_proof))
 with(survey_data, index(s_gender, s_age))
+plot(with(survey_data, index(s_gender, s_age)))
 }

@@ -15,4 +15,6 @@ RoxygenNote: 7.1.1
 Depends: 
     R (>= 2.10)
 Suggests: 
+    testthat (>= 3.0.0),
     haven (>= 2.4.1)
+Config/testthat/edition: 3
