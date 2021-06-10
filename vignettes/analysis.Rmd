@@ -67,10 +67,11 @@ To avoid overfitting, we remove 2 tasks from each respondent. We will later use 
 ```{r}
 set.seed(1)
 wdat <- experiment_data %>% group_by(response_id) %>% slice_sample(n = 10)
+vdat <- experiment_data %>% anti_join(wdat, by = c("response_id", "task"))
 
 ```
 
-## Examination or response variable
+## Examination of response variable
 
 To get an idea about the heterogeneity in among respondents, we'll look at some summary statistics of the distribution of their answers across the ten tasks in our working data.
 
@@ -120,7 +121,22 @@ anova(m1)
 
 This model does not fit particularly well, with $R^2$ in the single digits. But even so there are several statistically significant variables. The most important appears to be the cohort variable, followed by price and social proof.
 
-We'll use prediction performance on the validation data as our main metric to compare this model with later models.
+We'll use prediction performance on the validation data as our main metric to compare this model with later models. We will use the log loss, equivalent to the negative log likelihood, of the model on the validation data as our specific metric.
+
+
+```{r}
+
+valu <- with(vdat, rms::cr.setup(answer))
+
+val_crdat <- vdat[valu$subs, ] %>% ungroup() %>% select(duration:social_proof)
+val_crdat$cohort <- valu$cohort
+
+p <- predict(m1, as.data.frame(val_crdat), type = "fitted") # as.data.frame needed because predictrms uses [,i] to select vectors 
+
+m1_validation_logloss <- -sum(log(ifelse(valu$y == 1, p, 1 - p)))
+
+
+```
 
 
 
