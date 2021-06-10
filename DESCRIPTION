@@ -22,6 +22,7 @@ Suggests:
     magrittr (>= 2.0.1),
     dplyr (>= 1.0.6),
     purrr (>= 0.3.4),
-    ggplot2 (>= 3.3.3)
+    ggplot2 (>= 3.3.3),
+    rms (>= 6.2.0)
 Config/testthat/edition: 3
 VignetteBuilder: knitr

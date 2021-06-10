@@ -91,12 +91,40 @@ rstats %>% ggplot(aes(x = min_ans)) + geom_histogram()
 
 ```
 
-The mean response appears to follow a mixture distribution. A certain fraction of about 250 / 892 of respondents answered 1 ("Very unlikely") in all 12 tasks. Another 70 or so respondents also provided the same answer to all tasks, resulting in about 320 respondents with an standard deviation of zero and a range of 1. Models for these groups of constant-response individuals could be very simple.
+The mean response appears to follow a mixture distribution. A certain fraction of about 250 / 892 of respondents answered 1 ("Very unlikely") in all 12 tasks. Another 70 or so respondents also provided the same answer to all tasks, resulting in about 320 respondents with an standard deviation of zero and a range of 1. Ten individuals had a minimum answer of 4 and must have answered 4 for all tasks. Models for these groups of constant-response individuals could be very simple. They could maximize AIC by having a constant intercept only.
 
 The number of respondents in the sample was a decreasing function of the range of respondents. Ranges of 3 were even rarer than extrapolation of the linear trend from ranges of 0 to 2 would predict. Although rare, the sensitivity of these individuals to some attributes in the experiment may be valuable to know.
 
 On balance the mean answers from the respondents that did not always answer 1 seem to be uniformly distributed.  There may be more variation among groups of individuals than within individuals. This variation maybe explainable in terms of variables included in the survey.
 
 # Modeling
+
+As a starting point, we'll fit a continuation ratio model [@harrel] that assumes homogeneity among respondents. According to Rao [-@rao], this homogeneity assumption is rarely satisfied but accounting for heterogeneity with an overly complex model could produce results that do not generalize beyond the training data and are difficult to interpret. Additionally, our time for this analysis is highly limited. Therefore, we will start with a simple model and build up complexity towards an optimal level. The continuation ratio model is a very simple model that is appropriate for an ordinal response variable.
+
+```{r}
+
+u <- with(wdat, rms::cr.setup(answer))
+
+Y <- u$y
+cohort <- u$cohort
+crdat <- wdat[u$subs, ] %>% ungroup() %>% select(duration:social_proof)
+
+attach(crdat)
+m1 <- rms::lrm(Y ~ cohort + duration + offer + outcome + price + rtb + social_proof)
+detach(crdat)
+
+m1
+anova(m1)
+```
+
+
+This model does not fit particularly well, with $R^2$ in the single digits. But even so there are several statistically significant variables. The most important appears to be the cohort variable, followed by price and social proof.
+
+We'll use prediction performance on the validation data as our main metric to compare this model with later models.
+
+
+
+
+
 
 # References
