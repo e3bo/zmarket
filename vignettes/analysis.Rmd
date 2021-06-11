@@ -318,39 +318,14 @@ pcvfit3 <- predict(cvfit3, newx = newx4, s = "lambda.min", type = "response") %>
 The reduction in log loss is about the same as before.
 
 
-### Survey variable interactions with attributes
-
-Now we'll be a bit more ambitious and try adding interactions of the survey variables with the attributes. It could be valuable for clients to know if the a certain attribute resonates with a certain demographic. We won't try adding interactions of the response_id with the attributes because there would likely not be sufficient power to estimate these parameters and any strong effects would not be immediately actionable. Such effects could just be an idiosyncracies of the individual.
-
-
-```{r}
-
-survey_by_attr <- model.matrix(~ (duration + offer + outcome + price + rtb + social_proof):(.) - 1 - duration - offer - outcome - price - rtb - social_proof, select(crdat2, -response_id, -Y, -foldid, -task))
-
-x5 <- cbind(x3, survey_by_attr)
-system.time(cvfit4 <- cv.glmnet(x5, crdat2$Y, foldid = crdat2$foldid, 
-                                family = "binomial", type.measure = "deviance"))
-
-val_survey_by_attr <- model.matrix(~ (duration + offer + outcome + price + rtb + social_proof):(.) - 1 - duration - offer - outcome - price - rtb - social_proof, select(val_crdat2, -response_id, -y))
-newx5 <- cbind(newx3, val_survey_by_attr)
-
-pcvfit4 <- predict(cvfit4, newx = newx5, s = "lambda.min", type = "response") %>% 
-  as.numeric()
-(validation_log_losses$m8 <- -sum(log(ifelse(val_crdat2$y == 1, pcvfit4, 1 - pcvfit4))))
-
-```
-
-This model takes much longer to fit and scores worse than our previous 2 models on our validation task.
-However, its scores is not that much different and some of the interactions of survey variables with attributes may be useful to know.
-
 ## Attribute effects on likeliness to download
 
-We will now use our models with greatest predictive performance to determine how each attribute and attribute level influences the stated likeliness to download. To begin, we will examine the estimated coefficients for the attribute main effects in our models with the penalty which minimized cross-validation deviance.
+We will now use our model with greatest predictive performance to determine how each attribute and attribute level influences the stated likeliness to download. To begin, we will examine the estimated coefficients for the attribute main effects in our models with the penalty which minimized cross-validation deviance.
 
 ```{r, fig.height=10, fig.width = 8}
 
 ests7 <- predict(cvfit3, s = "lambda.min", type = "coef")
-ests8 <- predict(cvfit4, s = "lambda.min", type = "coef")
+
 atts_main <- colnames(x3) %>% str_subset("^price|^offer|^outcome|^duration|^rtb|^social_proof")  
 
 pdata <- data.frame(coef_name = atts_main, est = ests7[atts_main, ]) %>% 
@@ -400,7 +375,17 @@ pdata2 %>% ggplot(aes(x = level, y = -comb_est, fill = coh)) +
 
 The effect of an attribute level on further increasing the likelihood of download can depend on whether the increase will be from a very unlikely to somewhat unlikely (Answer group all), somewhat unlikely likely to somewhat likely (answer>=2), or somewhat likely to very likely (answer>=3). For example the $40/month price seems to keep individuals from moving from an answer of 3 to 4 moreso than from an answer of 1 to 2 or 2 to 3. Scientific evidence seems most useful in converting answers from somewhat unlikely to somewhat likely but actually seems to inhibit the change of answers from very unlikely to somewhat likely. 
 
+Next we will put the overall effects of the variables in perspective with each other and with the other variables in the model. We will use the sum of the absolute values of all effects of the levels of a variable as a measure of varible importance. 
 
+```{r fig.width = 10}
+
+
+pdata %>% ggplot(aes(x = var, y = abs(est), fill = level)) + geom_col() + 
+  labs(x = "Attribute", y = "Importance")
+
+
+
+```
 
 
 # References
