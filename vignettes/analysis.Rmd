@@ -121,9 +121,7 @@ crdat <- wdat[u$subs, ] %>% ungroup() %>% select(task, response_id, foldid, dura
 crdat$cohort <- u$cohort
 crdat$Y <- u$y
 
-attach(crdat)
-m1 <- rms::lrm(Y ~ cohort + duration + offer + outcome + price + rtb + social_proof)
-detach(crdat)
+m1 <- rms::lrm(Y ~ cohort + duration + offer + outcome + price + rtb + social_proof, data = crdat)
 
 m1
 anova(m1)
@@ -161,10 +159,8 @@ Next we will try relaxing the assumption in the CR model that parameters are the
 
 ```{r}
 
-attach(crdat)
-m2 <- rms::lrm(Y ~ cohort*(duration + offer + outcome + price + rtb + social_proof), x = TRUE, y = TRUE)
-detach(crdat)
 
+m2 <- rms::lrm(Y ~ cohort*(duration + offer + outcome + price + rtb + social_proof), x = TRUE, y = TRUE, data = crdat)
 m2
 anova(m2)
 (validation_log_losses$m2 <- calc_val_logloss(m2, val_crdat))
@@ -183,9 +179,7 @@ The best model seems to have twice as many degrees of freedom as our first model
 
 ```{r}
 
-attach(crdat)
-m3 <- update(m2, penalty = list(simple = 0, interaction = 2000))
-detach(crdat)
+m3 <- update(m2, penalty = list(simple = 0, interaction = 2000), data = crdat)
 
 (validation_log_losses$m3 <- calc_val_logloss(m3, val_crdat))
 
@@ -205,10 +199,7 @@ We'll now try building up complexity by removing the assumption of homogeneity a
 
 ```{r}
 
-attach(crdat)
-m4 <- rms::lrm(Y ~ cohort + response_id + duration + offer + outcome + price + rtb + social_proof, x = TRUE, y = TRUE, penalty = list(simple = 10))
-detach(crdat)
-
+m4 <- rms::lrm(Y ~ cohort + response_id + duration + offer + outcome + price + rtb + social_proof, x = TRUE, y = TRUE, penalty = 10, data = crdat)
 anova(m4)
 (validation_log_losses$m4 <- calc_val_logloss(m4, val_crdat))
 
@@ -220,8 +211,8 @@ As expected from our EDA, variation among respondents explains a lot of the vari
 ```{r}
 
 library(glmnet)
+library(doMC)
 
-require(doMC)
 registerDoMC(cores = 2)
 
 foldid <- crdat$foldid
@@ -301,20 +292,32 @@ Adding the survey variables led to a modest improvement of about 4 in the log lo
 
 ## Interactions
 
-We will now proceed to add interactions into the model in a staged manner. This will allow us to check for the increased compuational costs and performance benefits as we go.
+We will now proceed to add interactions into the model in a staged manner. This will allow us to check for the increased computational costs and performance benefits as we go.
 
 ### Cohort interactions / relaxation of CR assumptions
 
 Although this did not have a big effect when we investigated it earlier, it was beneficial and perhaps the effect size will be different now that our model has grown.
 
-
 ```{r}
 
+cohort_by_attr <- model.matrix(~ cohort:(.) - 1 - cohort, select(crdat, -response_id, -Y, -foldid, -task))
+x4 <- cbind(x3, cohort_by_attr)
+system.time(cvfit3 <- cv.glmnet(x4, crdat2$Y, foldid = crdat2$foldid, 
+                                family = "binomial", type.measure = "deviance"))
+plot(cvfit3)
 
+val_cohort_by_attr <- model.matrix(~cohort:(.) - 1 - cohort, select(val_crdat, -response_id, -y))
+newx4 <- cbind(newx3, val_cohort_by_attr)
 
-
+pcvfit3 <- predict(cvfit3, newx = newx4, s = "lambda.min", type = "response") %>% 
+  as.numeric()
+(validation_log_losses$m7 <- -sum(log(ifelse(val_crdat2$y == 1, pcvfit3, 1 - pcvfit3))))
 
 ```
+
+The reduction in log loss is about the same as before.
+
+
 
 
 
