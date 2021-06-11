@@ -377,15 +377,37 @@ The effect of an attribute level on further increasing the likelihood of downloa
 
 Next we will put the overall effects of the variables in perspective with each other and with the other variables in the model. We will use the sum of the absolute values of all effects of the levels of a variable as a measure of varible importance. 
 
-```{r fig.width = 10}
+```{r fig.width = 10, fig.heigh = 17}
 
 
-pdata %>% ggplot(aes(x = var, y = abs(est), fill = level)) + geom_col() + 
-  labs(x = "Attribute", y = "Importance")
+pdata %>% 
+  ggplot(aes(x = var, y = abs(est), fill = paste(var, level, sep = "="))) + 
+  geom_col() + 
+  scale_fill_discrete(name = "Answer level") + 
+  labs(x = "Attribute", y = "Importance") + 
+  coord_flip() + 
+  theme(legend.position="top") +
+  guides(fill=guide_legend(ncol=2,byrow=TRUE))
 
 
 
 ```
+Overall, the most important attributes are price, social_proof, and rtb. Next, we'll examine the importance of interactions for each variables by summing the absolute values of their effect sizes.
+
+```{r fig.width = 10, fig.heigh = 17}
+
+
+pdata2 %>% 
+  ggplot(aes(x = var, y = abs(estchange))) + 
+  geom_col() + 
+  labs(x = "Attribute interactions with answer group", y = "Importance") + 
+  ylim(c(0, 1.25)) +
+  coord_flip()
+
+
+```
+The importance of interactions is often greater than the main effects of attributes, and the sum of all interaction importances is greater than the importance of any one attribute.
+
 
 
 # References
