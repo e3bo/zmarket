@@ -99,6 +99,16 @@ The number of respondents in the sample was a decreasing function of the range o
 
 On balance the mean answers from the respondents that did not always answer 1 seem to be uniformly distributed.  There may be more variation among groups of individuals than within individuals. This variation maybe explainable in terms of variables included in the survey.
 
+## Examination of survey data
+
+
+```{r}
+Hmisc::describe(survey_data)
+```
+
+There's quite a lot to work with here. One challenge is that missing data seems common.
+
+
 # Modeling
 
 As a starting point, we'll fit a CR (continuation ratio)  model [@harrel] that assumes homogeneity among respondents. According to Rao [-@rao], this homogeneity assumption is rarely satisfied but accounting for heterogeneity with an overly complex model could produce results that do not generalize beyond the training data and are difficult to interpret. Additionally, our time for this analysis is highly limited. Therefore, we will start with a simple model and build up complexity towards an optimal level. The continuation ratio model is a very simple model that is appropriate for an ordinal response variable.
@@ -107,10 +117,9 @@ As a starting point, we'll fit a CR (continuation ratio)  model [@harrel] that a
 
 u <- with(wdat, rms::cr.setup(answer))
 
-Y <- u$y
-
 crdat <- wdat[u$subs, ] %>% ungroup() %>% select(task, response_id, foldid, duration:social_proof)
 crdat$cohort <- u$cohort
+crdat$Y <- u$y
 
 attach(crdat)
 m1 <- rms::lrm(Y ~ cohort + duration + offer + outcome + price + rtb + social_proof)
@@ -215,11 +224,10 @@ library(glmnet)
 require(doMC)
 registerDoMC(cores = 2)
 
-m6 <- glmnet::glmnet(m4$x, m4$y, family = "binomial", alpha = 0.8)
-
 foldid <- crdat$foldid
 
 system.time(cvfit <- cv.glmnet(m4$x, m4$y, foldid = foldid, family = "binomial", type.measure = "deviance", parallel = TRUE))
+plot(cvfit)
 
 newx <- rms::lrm(y ~ cohort + response_id + duration + offer + outcome + price + rtb + social_proof, method = "model.matrix", data = val_crdat)
 stopifnot(all(colnames(newx) == colnames(m4$X)))
@@ -229,12 +237,90 @@ pcvfit <- predict(cvfit, newx = newx, s = "lambda.min", type = "response") %>% a
 
 ```
 
-The glment model with a cross-validated penalty is by far the best model for predicting our validation data. As expected, this model grouped together many respondents with the intercept:
+The glmnet model with a cross-validated penalty is by far the best model for predicting our validation data. As expected, this model grouped together many respondents with the intercept because the L1 penalty shrank the effect of their coefficients to zero:
 
 
 ```{r}
 colnames(newx)[which(coef(cvfit, s = "lambda.min") == 0)]
 ```
+
+## Explaining heterogeneity in terms of survey metrics
+
+
+Some of the variation among individuals may be explainable in terms of variables in the survye data. Also, these variables might be useful for determining the response of individuals to certain message attributes. Before attempting to put all of the survey variables directly in the model, we'll try reducing the dimensionality of the data with PCA. This may provide limit some overfitting and provide for an easier to understand model. We'll further simplify matters by excluding variables that included missing values.
+
+
+```{r}
+
+nonmissing <- purrr::map_lgl(survey_data, ~ all(!is.na(.x)))
+sd2 <- survey_data[, nonmissing] %>% select(-response_id, -weights)
+
+mmat <- glmnet::makeX(train = sd2)
+mmat2 <- mmat[, -which(apply(mmat, 2, sd) == 0)]
+
+
+res <- cor(mmat2, method="pearson")
+corrplot::corrplot(res, method= "color", order = "hclust", tl.pos = 'n')
+
+
+
+
+```
+
+On second thought, there does not appear to be many very strong correlations among predictors constructed from the survey data.
+It may be easier and more effective to simply add these variables to the regularized regression model directly.
+
+```{r}
+
+crdat2 <- survey_data[, nonmissing] %>% select(-weights) %>% right_join(crdat, by = "response_id")
+
+x2 <- glmnet::makeX(train = select(crdat2, -Y, -foldid, -task))
+novar <- which(apply(x2, 2, sd) == 0)
+x3 <- x2[, -novar]
+
+system.time(cvfit2 <- cv.glmnet(x3, crdat2$Y, foldid = crdat2$foldid, 
+                                family = "binomial", type.measure = "deviance"))
+plot(cvfit2)
+
+
+val_crdat2 <- survey_data[, nonmissing] %>% select(-weights) %>% 
+  right_join(val_crdat, by = "response_id")
+
+newx2 <- glmnet::makeX(train = select(val_crdat2, -y))
+stopifnot(all(colnames(newx2) == colnames(x2)))
+newx3 <- newx2[, -novar]
+
+pcvfit2 <- predict(cvfit2, newx = newx3, s = "lambda.min", type = "response") %>% 
+  as.numeric()
+(validation_log_losses$m6 <- -sum(log(ifelse(val_crdat2$y == 1, pcvfit2, 1 - pcvfit2))))
+
+
+```
+
+Adding the survey variables led to a modest improvement of about 4 in the log loss on the validation data.
+
+## Interactions
+
+We will now proceed to add interactions into the model in a staged manner. This will allow us to check for the increased compuational costs and performance benefits as we go.
+
+### Cohort interactions / relaxation of CR assumptions
+
+Although this did not have a big effect when we investigated it earlier, it was beneficial and perhaps the effect size will be different now that our model has grown.
+
+
+```{r}
+
+
+
+
+
+```
+
+
+
+
+
+
 
 
 # References
