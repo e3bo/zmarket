@@ -7,7 +7,7 @@ jobs:
     steps:
     - uses: actions/checkout@v1
     - name: R Build and Checks
-      uses: e3bo/R-actions@v1.3
+      uses: e3bo/R-actions@master
       with:
         action: 'build'
         needsBioc: false
