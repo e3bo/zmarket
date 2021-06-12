@@ -185,7 +185,7 @@ m3 <- update(m2, penalty = list(simple = 0, interaction = 2000), data = crdat)
 
 ```
 
-Interestingly, this model does not have lower loss the m2 in our validation data.
+Interestingly, this model does not have lower loss than m2 in our validation data.
 But the difference may not be statistically significant, and m3 is considerably simpler:
 
 ```{r}
@@ -238,7 +238,7 @@ colnames(newx)[which(coef(cvfit, s = "lambda.min") == 0)]
 ## Explaining heterogeneity in terms of survey metrics
 
 
-Some of the variation among individuals may be explainable in terms of variables in the survye data. Also, these variables might be useful for determining the response of individuals to certain message attributes. Before attempting to put all of the survey variables directly in the model, we'll try reducing the dimensionality of the data with PCA. This may provide limit some overfitting and provide for an easier to understand model. We'll further simplify matters by excluding variables that included missing values.
+Some of the variation among individuals may be explainable in terms of variables in the survey data. Also, these variables might be useful for determining the response of individuals to certain message attributes. Before attempting to put all of the survey variables directly in the model, we'll try reducing the dimensionality of the data with PCA. This may provide limit some overfitting and provide for an easier to understand model. We'll further simplify matters by excluding variables that included missing values.
 
 
 ```{r}
@@ -249,12 +249,8 @@ sd2 <- survey_data[, nonmissing] %>% select(-response_id, -weights)
 mmat <- glmnet::makeX(train = sd2)
 mmat2 <- mmat[, -which(apply(mmat, 2, sd) == 0)]
 
-
 res <- cor(mmat2, method="pearson")
 corrplot::corrplot(res, method= "color", order = "hclust", tl.pos = 'n')
-
-
-
 
 ```
 
@@ -285,29 +281,28 @@ pcvfit2 <- predict(cvfit2, newx = newx3, s = "lambda.min", type = "response") %>
   as.numeric()
 (validation_log_losses$m6 <- -sum(log(ifelse(val_crdat2$y == 1, pcvfit2, 1 - pcvfit2))))
 
-
 ```
 
 Adding the survey variables led to a modest improvement of about 4 in the log loss on the validation data.
 
-## Interactions
+## Cohort interactions / relaxation of CR assumptions
 
-We will now proceed to add interactions into the model in a staged manner. This will allow us to check for the increased computational costs and performance benefits as we go.
-
-### Cohort interactions / relaxation of CR assumptions
-
-Although this did not have a big effect when we investigated it earlier, it was beneficial and perhaps the effect size will be different now that our model has grown.
+Although these did not have a big effect on validation log loss when we investigated it earlier, adding them was beneficial and perhaps the effect size will be different now that our model has grown.
 
 ```{r}
 
-cohort_by_attr <- model.matrix(~ cohort:(.) - 1 - cohort, select(crdat, -response_id, -Y, -foldid, -task))
-x4 <- cbind(x3, cohort_by_attr)
+fm <- ~ cohort:(duration + offer + outcome + rtb + price + social_proof) + .
+x4a <- model.matrix(fm, select(crdat2, -Y, -foldid, -task))
+not_constant <- apply(x4a, 2, sd) > 0
+x4 <- cbind("(Intercept)" = x4a[, "(Intercept)"], x4a[, not_constant])
+
 system.time(cvfit3 <- cv.glmnet(x4, crdat2$Y, foldid = crdat2$foldid, 
                                 family = "binomial", type.measure = "deviance"))
 plot(cvfit3)
 
-val_cohort_by_attr <- model.matrix(~cohort:(.) - 1 - cohort, select(val_crdat, -response_id, -y))
-newx4 <- cbind(newx3, val_cohort_by_attr)
+newx4a <- model.matrix(fm, select(val_crdat2, -y))
+newx4 <- cbind("(Intercept)" = newx4a[, "(Intercept)"], newx4a[, not_constant])
+stopifnot(isTRUE(all(colnames(newx4) == colnames(x4))))
 
 pcvfit3 <- predict(cvfit3, newx = newx4, s = "lambda.min", type = "response") %>% 
   as.numeric()
@@ -315,7 +310,7 @@ pcvfit3 <- predict(cvfit3, newx = newx4, s = "lambda.min", type = "response") %>
 
 ```
 
-The reduction in log loss is about the same as before.
+The reduction in log loss is much larger than before.
 
 
 ## Attribute effects on likeliness to download
@@ -326,7 +321,9 @@ We will now use our model with greatest predictive performance to determine how 
 
 ests7 <- predict(cvfit3, s = "lambda.min", type = "coef")
 
-atts_main <- colnames(x3) %>% str_subset("^price|^offer|^outcome|^duration|^rtb|^social_proof")  
+atts_main <- colnames(x4) %>% stringr::str_subset("^price|^offer|^outcome|^duration|^rtb|^social_proof")  
+reflevels <- select(crdat2, -Y, -task, -foldid, -s_problem) %>% 
+  purrr::map(~if(is.factor(.x)){ levels(.x)[1]} else levels(factor(.x))[1])
 
 pdata <- data.frame(coef_name = atts_main, est = ests7[atts_main, ]) %>% 
   mutate(var = stringr::str_extract(atts_main, "duration|price|offer|rtb|social_proof|outcome"),
@@ -334,11 +331,14 @@ pdata <- data.frame(coef_name = atts_main, est = ests7[atts_main, ]) %>%
 
 pdata %>% ggplot(aes(x = level, y = -est)) + geom_col() + 
   facet_wrap(~var, scales = "free_y", ncol = 1) + coord_flip() +
-  labs(y = "Effect of attribute levels on logit of increasing likeliness of download rating")
+  labs(y = "Effect of attribute levels on logit of increasing likeliness of download rating") +
+  geom_hline(yintercept = 0, col = "grey")
 
 pdata %>% ggplot(aes(x = level, y = exp(-est))) + geom_col() + 
   facet_wrap(~var, scales = "free_y", ncol = 1) + coord_flip() +
-  labs(y = "Ratio of odds of increasing download rating:\n odds(with with attribute level) / odds(without attribute level)")
+  geom_hline(yintercept = 1, col = "grey") + 
+  labs(y = "Ratio of odds of increasing download rating:\n odds(with with attribute level) / odds(without attribute level)") 
+
 
 
 ```
@@ -349,13 +349,20 @@ Pr(Y = j | Y \ge j, X) = \frac{1}{1 + \exp[-(\alpha + \theta_j + X \gamma) ]},
 \end{equation}
 where $Y$ is the rating, $X$ is the matrix of predictors, $\alpha$ is the intercept, $\theta_j$ are the cohort effects, and $\gamma$ are the regression model coefficients.
 
+Another key point for interpretation is that these effects are contrast with a reference level for each variable. These reference levels are:
+
+```{r}
+data.frame("reference" = unlist(reflevels)) %>% knitr::kable()
+```
+We used the first levels of factors in the provided survey data set as a reference level. Levels for other variables were selected by the default method of alphabetical sorting, and choosing different reference levels could be useful for directly displaying effects of interest.
+
 In the context of our data, we can think of the linear predictor in our model as describing the logit of conditional probabilities of _not_ increasing a download rating beyond level $j$, where we have conditioned on the event that the rating is at least $j$. Thus to obtain the effects on the logits of increasing download ratings, we simply reverse the sign. The interpretation of the exponential of the regression coefficients in terms of odds ratios is appropriate because our variables are encoded as zeros or ones to indicate absence or presence of an attribute.
 
 Next, we consider the interactions of attributes with the cohort variables.
 
 ```{r fig.height=10, fig.width = 8 }
 
-attrs_coh <- colnames(cohort_by_attr)
+attrs_coh <- colnames(x4) %>% stringr::str_subset(":")
 
 pdata2 <- data.frame(coef_name = attrs_coh, estchange = ests7[attrs_coh, ]) %>% 
   mutate(var = stringr::str_extract(attrs_coh, "duration|price|offer|rtb|social_proof|outcome"),
@@ -373,9 +380,9 @@ pdata2 %>% ggplot(aes(x = level, y = -comb_est, fill = coh)) +
        conditional on rating value")
 ```
 
-The effect of an attribute level on further increasing the likelihood of download can depend on whether the increase will be from a very unlikely to somewhat unlikely (Answer group all), somewhat unlikely likely to somewhat likely (answer>=2), or somewhat likely to very likely (answer>=3). For example the $40/month price seems to keep individuals from moving from an answer of 3 to 4 moreso than from an answer of 1 to 2 or 2 to 3. Scientific evidence seems most useful in converting answers from somewhat unlikely to somewhat likely but actually seems to inhibit the change of answers from very unlikely to somewhat likely. 
+The effect of an attribute level on further increasing the likelihood of download can depend on whether the increase will be from a very unlikely to somewhat unlikely (Answer group all), somewhat unlikely likely to somewhat likely (answer>=2), or somewhat likely to very likely (answer>=3). For example the $40/month price seems to keep individuals from moving from an answer of 2 to 3 or 4 more than from an answer of 3 to 4 or away from 1. Scientific evidence seems most useful in converting answers from somewhat likely to very likely. 
 
-Next we will put the overall effects of the variables in perspective with each other and with the other variables in the model. We will use the sum of the absolute values of all effects of the levels of a variable as a measure of varible importance. 
+Next we will put the overall effects of the variables in perspective with each other and with the other variables in the model. We will use the sum of the absolute values of all effects of the levels of a variable as a measure of variable importance. 
 
 ```{r fig.width = 10, fig.heigh = 17}
 
@@ -383,7 +390,7 @@ Next we will put the overall effects of the variables in perspective with each o
 pdata %>% 
   ggplot(aes(x = var, y = abs(est), fill = paste(var, level, sep = "="))) + 
   geom_col() + 
-  scale_fill_discrete(name = "Answer level") + 
+  scale_fill_discrete(name = "Attribute level") + 
   labs(x = "Attribute", y = "Importance") + 
   coord_flip() + 
   theme(legend.position="top") +
@@ -401,7 +408,7 @@ pdata2 %>%
   ggplot(aes(x = var, y = abs(estchange))) + 
   geom_col() + 
   labs(x = "Attribute interactions with answer group", y = "Importance") + 
-  ylim(c(0, 1.26)) +
+  ylim(c(0, 2.2)) +
   coord_flip()
 
 
