@@ -478,7 +478,7 @@ The effect of an attribute level on further increasing the likelihood of downloa
 
 Next we will put the overall effects of the variables in perspective with each other and with the other variables in the model. We will use the sum of the absolute values of all effects of the levels of a variable as a measure of variable importance. 
 
-```{r fig.width = 10, fig.heigh = 17}
+```{r fig.width = 10, fig.height = 17}
 
 pdata %>%
   ggplot(aes(
