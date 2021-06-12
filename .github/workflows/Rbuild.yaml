@@ -9,6 +9,6 @@ jobs:
     - name: R Build and Checks
       uses: e3bo/R-actions@master
       with:
-        action: 'build'
+        action: 'all'
         needsBioc: false
 
