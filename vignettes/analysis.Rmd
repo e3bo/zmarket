@@ -394,20 +394,63 @@ pdata %>%
 ```
 Overall, the most important attributes are price, social_proof, and rtb. Next, we'll examine the importance of interactions for each variables by summing the absolute values of their effect sizes.
 
-```{r fig.width = 10, fig.heigh = 17}
+```{r fig.width = 10}
 
 
 pdata2 %>% 
   ggplot(aes(x = var, y = abs(estchange))) + 
   geom_col() + 
   labs(x = "Attribute interactions with answer group", y = "Importance") + 
-  ylim(c(0, 1.25)) +
+  ylim(c(0, 1.26)) +
   coord_flip()
 
 
 ```
 The importance of interactions is often greater than the main effects of attributes, and the sum of all interaction importances is greater than the importance of any one attribute.
 
+Now lets see how these attribute-related effects compare to others in our model. To begin with, we'll plot the distribution of all (negated) regression coefficients.
 
+
+```{r}
+
+cdf <- data.frame(ncoefficients = -ests7[,1], vname = rownames(ests7))
+cdf %>% ggplot(aes(x= ncoefficients)) + geom_histogram(binwidth = 0.1) +
+  labs(x = "Effect on logit of increasing download rating")
+
+```
+Clearly, the coefficients for attributes are far from the largest ones in the model. Next, lets stratify by cohort effects, attribute effects, and respondent level effects.
+
+
+```{r}
+
+cdf2 <- cdf %>% mutate(var_type =
+                       case_when(stringr::str_detect(vname, "^offer|^price|^social_proof|^rtb|^outcome|^duration") ~ "attribute",
+                                 stringr::str_detect(vname, "^response_id") ~ "response_id",
+                                 stringr::str_detect(vname, "^cohort") ~ "cohort/Intercept",
+                                 vname == "(Intercept)" ~ "cohort/Intercept",
+                                 TRUE ~ "survey"))
+
+cdf2 %>% ggplot(aes(x = abs(ncoefficients))) + 
+  geom_histogram(binwidth = 0.1) + 
+  facet_grid(var_type~., scales = "free_y") + 
+  scale_x_continuous(trans = "log1p") + 
+  labs(x = "Variable importance")
+
+```
+
+Clearly, respondent_id are among the most important variables for explaining the rated likelihood of downloading. We are able to explain some of this individual level variation with our survey variables:
+
+```{r}
+
+
+cdf2 %>% 
+  filter(var_type == "survey") %>% 
+  select(Variable=vname, "Effect on logit of increasing rating"=ncoefficients) %>% 
+  knitr::kable(row.names = FALSE) 
+
+
+```
+
+Many of these effects seem reasonable. There's a negative correlation of age with an individuals likelihood to download, which may be a sign of younger individuals being more conversant with technology. Individuals who are very interested in a coach are more likely to download. Further analysis and modeling of these data would likely yield many more potentially useful insights.
 
 # References
