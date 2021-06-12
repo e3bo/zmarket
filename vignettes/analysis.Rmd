@@ -36,8 +36,8 @@ discrete_vars <- experiment_data %>% select(duration:social_proof)
 indtabs <- list()
 i <- 1
 cat("## Tables of indexes\n Groups levels are on rows and index levels are on columns.")
-for(v1 in names(discrete_vars)){
-  for(v2 in setdiff(names(discrete_vars), v1)){
+for (v1 in names(discrete_vars)) {
+  for (v2 in setdiff(names(discrete_vars), v1)) {
     indtabs[[i]] <- index(experiment_data[[v1]], experiment_data[[v2]])
     print(knitr::kable(indtabs[[i]]))
     i <- i + 1
@@ -53,8 +53,8 @@ Next we reproduce a result from the assignment to allow us to comment on it.
 
 ```{r}
 (levs <- experiment_data %>%
-  select(duration:social_proof) %>%
-  map(unique) %>%  map(~t(t(.x))))
+   select(duration:social_proof) %>%
+   map(unique) %>%  map( ~ t(t(.x))))
 ```
 
 There are 6 attributes in the experiment with between three and six levels. If we use a dummy variable encoding of each attribute, our model would have `r sum(map_dbl(levs, ~nrow(.x) - 1))` parameters. Therefore, it is not reasonable for us to fit such a model for each individual respondent. Therefore, a key modeling challenge will be fit models with relatively large numbers of parameters from relatively small numbers of observations. Our main tools will be to try to pool individuals into homogeneous groups and fit models for those groups and to apply penalties to model parameters to reduce their estimation variance.
@@ -66,9 +66,11 @@ To avoid overfitting, we remove 2 tasks from each respondent. We will later use 
 
 ```{r}
 set.seed(1)
-wdat <- experiment_data %>% group_by(response_id) %>% slice_sample(n = 10) %>% 
+wdat <-
+  experiment_data %>% group_by(response_id) %>% slice_sample(n = 10) %>%
   mutate(foldid = 1:n())
-vdat <- experiment_data %>% anti_join(wdat, by = c("response_id", "task"))
+vdat <-
+  experiment_data %>% anti_join(wdat, by = c("response_id", "task"))
 
 ```
 
@@ -78,12 +80,14 @@ To get an idea about the heterogeneity in among respondents, we'll look at some 
 
 ```{r}
 
-rstats <- wdat %>% group_by(response_id) %>% 
-  summarise(mean_ans = mean(answer), 
-            sd_ans = sd(answer),
-            max_ans = max(answer),
-            min_ans = min(answer),
-            range_ans = max_ans  - min_ans) 
+rstats <- wdat %>% group_by(response_id) %>%
+  summarise(
+    mean_ans = mean(answer),
+    sd_ans = sd(answer),
+    max_ans = max(answer),
+    min_ans = min(answer),
+    range_ans = max_ans  - min_ans
+  )
 
 rstats %>% ggplot(aes(x = mean_ans)) + geom_histogram()
 rstats %>% ggplot(aes(x = sd_ans)) + geom_histogram()
@@ -117,11 +121,14 @@ As a starting point, we'll fit a CR (continuation ratio)  model [@harrel] that a
 
 u <- with(wdat, rms::cr.setup(answer))
 
-crdat <- wdat[u$subs, ] %>% ungroup() %>% select(task, response_id, foldid, duration:social_proof)
+crdat <-
+  wdat[u$subs,] %>% ungroup() %>% select(task, response_id, foldid, duration:social_proof)
 crdat$cohort <- u$cohort
 crdat$Y <- u$y
 
-m1 <- rms::lrm(Y ~ cohort + duration + offer + outcome + price + rtb + social_proof, data = crdat)
+m1 <-
+  rms::lrm(Y ~ cohort + duration + offer + outcome + price + rtb + social_proof,
+           data = crdat)
 
 m1
 anova(m1)
@@ -137,14 +144,16 @@ We'll use prediction performance on the validation data as our main metric to co
 
 valu <- with(vdat, rms::cr.setup(answer))
 
-val_crdat <- vdat[valu$subs, ] %>% ungroup() %>% select(response_id, duration:social_proof)
+val_crdat <-
+  vdat[valu$subs,] %>% ungroup() %>% select(response_id, duration:social_proof)
 val_crdat$cohort <- valu$cohort
 val_crdat$y <- valu$y
 
-calc_val_logloss <- function(mod, valdata){
-  vdf <- as.data.frame(valdata) # tibbles cause errors because predictrms uses [,i] to select vectors
+calc_val_logloss <- function(mod, valdata) {
+  vdf <-
+    as.data.frame(valdata) # tibbles cause errors because predictrms uses [,i] to select vectors
   p <- predict(mod, vdf, type = "fitted")
-  -sum(log(ifelse(vdf$y == 1, p, 1 - p)))
+  - sum(log(ifelse(vdf$y == 1, p, 1 - p)))
 }
 
 validation_log_losses <- list()
@@ -159,8 +168,13 @@ Next we will try relaxing the assumption in the CR model that parameters are the
 
 ```{r}
 
-
-m2 <- rms::lrm(Y ~ cohort*(duration + offer + outcome + price + rtb + social_proof), x = TRUE, y = TRUE, data = crdat)
+m2 <-
+  rms::lrm(
+    Y ~ cohort * (duration + offer + outcome + price + rtb + social_proof),
+    x = TRUE,
+    y = TRUE,
+    data = crdat
+  )
 m2
 anova(m2)
 (validation_log_losses$m2 <- calc_val_logloss(m2, val_crdat))
@@ -199,7 +213,14 @@ We'll now try building up complexity by removing the assumption of homogeneity a
 
 ```{r}
 
-m4 <- rms::lrm(Y ~ cohort + response_id + duration + offer + outcome + price + rtb + social_proof, x = TRUE, y = TRUE, penalty = 10, data = crdat)
+m4 <-
+  rms::lrm(
+    Y ~ cohort + response_id + duration + offer + outcome + price + rtb + social_proof,
+    x = TRUE,
+    y = TRUE,
+    penalty = 10,
+    data = crdat
+  )
 anova(m4)
 (validation_log_losses$m4 <- calc_val_logloss(m4, val_crdat))
 
@@ -217,14 +238,36 @@ registerDoMC(cores = 2)
 
 foldid <- crdat$foldid
 
-system.time(cvfit <- cv.glmnet(m4$x, m4$y, foldid = foldid, family = "binomial", type.measure = "deviance", parallel = TRUE))
+system.time(
+  cvfit <-
+    cv.glmnet(
+      m4$x,
+      m4$y,
+      foldid = foldid,
+      family = "binomial",
+      type.measure = "deviance",
+      parallel = TRUE
+    )
+)
 plot(cvfit)
 
-newx <- rms::lrm(y ~ cohort + response_id + duration + offer + outcome + price + rtb + social_proof, method = "model.matrix", data = val_crdat)
-stopifnot(all(colnames(newx) == colnames(m4$X)))
+newx <-
+  rms::lrm(
+    y ~ cohort + response_id + duration + offer + outcome + price + rtb + social_proof,
+    method = "model.matrix",
+    data = val_crdat
+  )
+stopifnot(all(colnames(newx) == colnames(m4$x)))
 
-pcvfit <- predict(cvfit, newx = newx, s = "lambda.min", type = "response") %>% as.numeric()
-(validation_log_losses$m5 <- -sum(log(ifelse(val_crdat$y == 1, pcvfit, 1 - pcvfit))))
+pcvfit <-
+  predict(cvfit,
+          newx = newx,
+          s = "lambda.min",
+          type = "response") %>% as.numeric()
+(validation_log_losses$m5 <-
+    -sum(log(ifelse(
+      val_crdat$y == 1, pcvfit, 1 - pcvfit
+    ))))
 
 ```
 
@@ -243,14 +286,18 @@ Some of the variation among individuals may be explainable in terms of variables
 
 ```{r}
 
+
 nonmissing <- purrr::map_lgl(survey_data, ~ all(!is.na(.x)))
-sd2 <- survey_data[, nonmissing] %>% select(-response_id, -weights)
+sd2 <- survey_data[, nonmissing] %>% select(-response_id,-weights)
 
 mmat <- glmnet::makeX(train = sd2)
-mmat2 <- mmat[, -which(apply(mmat, 2, sd) == 0)]
+mmat2 <- mmat[,-which(apply(mmat, 2, sd) == 0)]
 
-res <- cor(mmat2, method="pearson")
-corrplot::corrplot(res, method= "color", order = "hclust", tl.pos = 'n')
+res <- cor(mmat2, method = "pearson")
+corrplot::corrplot(res,
+                   method = "color",
+                   order = "hclust",
+                   tl.pos = 'n')
 
 ```
 
@@ -259,27 +306,42 @@ It may be easier and more effective to simply add these variables to the regular
 
 ```{r}
 
-crdat2 <- survey_data[, nonmissing] %>% select(-weights) %>% right_join(crdat, by = "response_id")
+crdat2 <-
+  survey_data[, nonmissing] %>% select(-weights) %>% right_join(crdat, by = "response_id")
 
-x2 <- glmnet::makeX(train = select(crdat2, -Y, -foldid, -task))
+x2 <- glmnet::makeX(train = select(crdat2,-Y,-foldid,-task))
 novar <- which(apply(x2, 2, sd) == 0)
-x3 <- x2[, -novar]
+x3 <- x2[,-novar]
 
-system.time(cvfit2 <- cv.glmnet(x3, crdat2$Y, foldid = crdat2$foldid, 
-                                family = "binomial", type.measure = "deviance"))
+system.time(
+  cvfit2 <- cv.glmnet(
+    x3,
+    crdat2$Y,
+    foldid = crdat2$foldid,
+    family = "binomial",
+    type.measure = "deviance"
+  )
+)
 plot(cvfit2)
 
 
-val_crdat2 <- survey_data[, nonmissing] %>% select(-weights) %>% 
+val_crdat2 <- survey_data[, nonmissing] %>% select(-weights) %>%
   right_join(val_crdat, by = "response_id")
 
-newx2 <- glmnet::makeX(train = select(val_crdat2, -y))
+newx2 <- glmnet::makeX(train = select(val_crdat2,-y))
 stopifnot(all(colnames(newx2) == colnames(x2)))
-newx3 <- newx2[, -novar]
+newx3 <- newx2[,-novar]
 
-pcvfit2 <- predict(cvfit2, newx = newx3, s = "lambda.min", type = "response") %>% 
+pcvfit2 <-
+  predict(cvfit2,
+          newx = newx3,
+          s = "lambda.min",
+          type = "response") %>%
   as.numeric()
-(validation_log_losses$m6 <- -sum(log(ifelse(val_crdat2$y == 1, pcvfit2, 1 - pcvfit2))))
+(validation_log_losses$m6 <-
+    -sum(log(
+      ifelse(val_crdat2$y == 1, pcvfit2, 1 - pcvfit2)
+    )))
 
 ```
 
@@ -291,22 +353,39 @@ Although these did not have a big effect on validation log loss when we investig
 
 ```{r}
 
-fm <- ~ cohort:(duration + offer + outcome + rtb + price + social_proof) + .
-x4a <- model.matrix(fm, select(crdat2, -Y, -foldid, -task))
+fm <-
+  ~ cohort:(duration + offer + outcome + rtb + price + social_proof) + .
+x4a <- model.matrix(fm, select(crdat2,-Y,-foldid,-task))
 not_constant <- apply(x4a, 2, sd) > 0
-x4 <- cbind("(Intercept)" = x4a[, "(Intercept)"], x4a[, not_constant])
+x4 <-
+  cbind("(Intercept)" = x4a[, "(Intercept)"], x4a[, not_constant])
 
-system.time(cvfit3 <- cv.glmnet(x4, crdat2$Y, foldid = crdat2$foldid, 
-                                family = "binomial", type.measure = "deviance"))
+system.time(
+  cvfit3 <- cv.glmnet(
+    x4,
+    crdat2$Y,
+    foldid = crdat2$foldid,
+    family = "binomial",
+    type.measure = "deviance"
+  )
+)
 plot(cvfit3)
 
-newx4a <- model.matrix(fm, select(val_crdat2, -y))
-newx4 <- cbind("(Intercept)" = newx4a[, "(Intercept)"], newx4a[, not_constant])
+newx4a <- model.matrix(fm, select(val_crdat2,-y))
+newx4 <-
+  cbind("(Intercept)" = newx4a[, "(Intercept)"], newx4a[, not_constant])
 stopifnot(isTRUE(all(colnames(newx4) == colnames(x4))))
 
-pcvfit3 <- predict(cvfit3, newx = newx4, s = "lambda.min", type = "response") %>% 
+pcvfit3 <-
+  predict(cvfit3,
+          newx = newx4,
+          s = "lambda.min",
+          type = "response") %>%
   as.numeric()
-(validation_log_losses$m7 <- -sum(log(ifelse(val_crdat2$y == 1, pcvfit3, 1 - pcvfit3))))
+(validation_log_losses$m7 <-
+    -sum(log(
+      ifelse(val_crdat2$y == 1, pcvfit3, 1 - pcvfit3)
+    )))
 
 ```
 
@@ -321,25 +400,30 @@ We will now use our model with greatest predictive performance to determine how 
 
 ests7 <- predict(cvfit3, s = "lambda.min", type = "coef")
 
-atts_main <- colnames(x4) %>% stringr::str_subset("^price|^offer|^outcome|^duration|^rtb|^social_proof")  
-reflevels <- select(crdat2, -Y, -task, -foldid, -s_problem) %>% 
-  purrr::map(~if(is.factor(.x)){ levels(.x)[1]} else levels(factor(.x))[1])
+atts_main <-
+  colnames(x4) %>% stringr::str_subset("^price|^offer|^outcome|^duration|^rtb|^social_proof")
+reflevels <- select(crdat2,-Y,-task,-foldid,-s_problem) %>%
+  purrr::map( ~ if (is.factor(.x)) {
+    levels(.x)[1]
+  } else
+    levels(factor(.x))[1])
 
-pdata <- data.frame(coef_name = atts_main, est = ests7[atts_main, ]) %>% 
-  mutate(var = stringr::str_extract(atts_main, "duration|price|offer|rtb|social_proof|outcome"),
-         level = stringr::str_remove(atts_main, "duration|price|offer|rtb|social_proof|outcome"))
+pdata <-
+  data.frame(coef_name = atts_main, est = ests7[atts_main,]) %>%
+  mutate(
+    var = stringr::str_extract(atts_main, "duration|price|offer|rtb|social_proof|outcome"),
+    level = stringr::str_remove(atts_main, "duration|price|offer|rtb|social_proof|outcome")
+  )
 
-pdata %>% ggplot(aes(x = level, y = -est)) + geom_col() + 
-  facet_wrap(~var, scales = "free_y", ncol = 1) + coord_flip() +
+pdata %>% ggplot(aes(x = level, y = -est)) + geom_col() +
+  facet_wrap( ~ var, scales = "free_y", ncol = 1) + coord_flip() +
   labs(y = "Effect of attribute levels on logit of increasing likeliness of download rating") +
   geom_hline(yintercept = 0, col = "grey")
 
-pdata %>% ggplot(aes(x = level, y = exp(-est))) + geom_col() + 
-  facet_wrap(~var, scales = "free_y", ncol = 1) + coord_flip() +
-  geom_hline(yintercept = 1, col = "grey") + 
-  labs(y = "Ratio of odds of increasing download rating:\n odds(with with attribute level) / odds(without attribute level)") 
-
-
+pdata %>% ggplot(aes(x = level, y = exp(-est))) + geom_col() +
+  facet_wrap( ~ var, scales = "free_y", ncol = 1) + coord_flip() +
+  geom_hline(yintercept = 1, col = "grey") +
+  labs(y = "Ratio of odds of increasing download rating:\n odds(with with attribute level) / odds(without attribute level)")
 
 ```
 
@@ -364,18 +448,28 @@ Next, we consider the interactions of attributes with the cohort variables.
 
 attrs_coh <- colnames(x4) %>% stringr::str_subset(":")
 
-pdata2 <- data.frame(coef_name = attrs_coh, estchange = ests7[attrs_coh, ]) %>% 
-  mutate(var = stringr::str_extract(attrs_coh, "duration|price|offer|rtb|social_proof|outcome"),
-         coh = stringr::str_extract(attrs_coh, "answer>=[1-3]|all"),
-         level = stringr::str_replace_all(attrs_coh, 
-                                              "cohortall|cohortanswer>=[2-3]|:|duration|price|offer|rtb|social_proof|outcome", "")) %>% 
+pdata2 <-
+  data.frame(coef_name = attrs_coh, estchange = ests7[attrs_coh,]) %>%
+  mutate(
+    var = stringr::str_extract(attrs_coh, "duration|price|offer|rtb|social_proof|outcome"),
+    coh = stringr::str_extract(attrs_coh, "answer>=[1-3]|all"),
+    level = stringr::str_replace_all(
+      attrs_coh,
+      "cohortall|cohortanswer>=[2-3]|:|duration|price|offer|rtb|social_proof|outcome",
+      ""
+    )
+  ) %>%
   left_join(pdata, by = c("level", "var")) %>%
   mutate(comb_est = est + estchange)
 
-pdata2 %>% ggplot(aes(x = level, y = -comb_est, fill = coh)) + 
-  geom_col(position = position_dodge()) + 
-  facet_wrap(~var, scales = "free_y", ncol = 1) + coord_flip() +
-  scale_fill_discrete(name = "Answer level") + 
+pdata2 %>% ggplot(aes(
+  x = level,
+  y = -comb_est,
+  fill = coh
+)) +
+  geom_col(position = position_dodge()) +
+  facet_wrap( ~ var, scales = "free_y", ncol = 1) + coord_flip() +
+  scale_fill_discrete(name = "Answer level") +
   labs(y = "Effect of attribute levels on logit of increasing likeliness of download rating\n
        conditional on rating value")
 ```
@@ -386,31 +480,30 @@ Next we will put the overall effects of the variables in perspective with each o
 
 ```{r fig.width = 10, fig.heigh = 17}
 
-
-pdata %>% 
-  ggplot(aes(x = var, y = abs(est), fill = paste(var, level, sep = "="))) + 
-  geom_col() + 
-  scale_fill_discrete(name = "Attribute level") + 
-  labs(x = "Attribute", y = "Importance") + 
-  coord_flip() + 
-  theme(legend.position="top") +
-  guides(fill=guide_legend(ncol=2,byrow=TRUE))
-
-
+pdata %>%
+  ggplot(aes(
+    x = var,
+    y = abs(est),
+    fill = paste(var, level, sep = "=")
+  )) +
+  geom_col() +
+  scale_fill_discrete(name = "Attribute level") +
+  labs(x = "Attribute", y = "Importance") +
+  coord_flip() +
+  theme(legend.position = "top") +
+  guides(fill = guide_legend(ncol = 2, byrow = TRUE))
 
 ```
 Overall, the most important attributes are price, social_proof, and rtb. Next, we'll examine the importance of interactions for each variables by summing the absolute values of their effect sizes.
 
 ```{r fig.width = 10}
 
-
-pdata2 %>% 
-  ggplot(aes(x = var, y = abs(estchange))) + 
-  geom_col() + 
-  labs(x = "Attribute interactions with answer group", y = "Importance") + 
+pdata2 %>%
+  ggplot(aes(x = var, y = abs(estchange))) +
+  geom_col() +
+  labs(x = "Attribute interactions with answer group", y = "Importance") +
   ylim(c(0, 2.2)) +
   coord_flip()
-
 
 ```
 The importance of interactions is often greater than the main effects of attributes, and the sum of all interaction importances is greater than the importance of any one attribute.
@@ -420,8 +513,9 @@ Now lets see how these attribute-related effects compare to others in our model.
 
 ```{r}
 
-cdf <- data.frame(ncoefficients = -ests7[,1], vname = rownames(ests7))
-cdf %>% ggplot(aes(x= ncoefficients)) + geom_histogram(binwidth = 0.1) +
+cdf <-
+  data.frame(ncoefficients = -ests7[, 1], vname = rownames(ests7))
+cdf %>% ggplot(aes(x = ncoefficients)) + geom_histogram(binwidth = 0.1) +
   labs(x = "Effect on logit of increasing download rating")
 
 ```
@@ -430,17 +524,24 @@ Clearly, the coefficients for attributes are far from the largest ones in the mo
 
 ```{r}
 
-cdf2 <- cdf %>% mutate(var_type =
-                       case_when(stringr::str_detect(vname, "^offer|^price|^social_proof|^rtb|^outcome|^duration") ~ "attribute",
-                                 stringr::str_detect(vname, "^response_id") ~ "response_id",
-                                 stringr::str_detect(vname, "^cohort") ~ "cohort/Intercept",
-                                 vname == "(Intercept)" ~ "cohort/Intercept",
-                                 TRUE ~ "survey"))
+cdf2 <- cdf %>% mutate(
+  var_type =
+    case_when(
+      stringr::str_detect(
+        vname,
+        "^offer|^price|^social_proof|^rtb|^outcome|^duration"
+      ) ~ "attribute",
+      stringr::str_detect(vname, "^response_id") ~ "response_id",
+      stringr::str_detect(vname, "^cohort") ~ "cohort/Intercept",
+      vname == "(Intercept)" ~ "cohort/Intercept",
+      TRUE ~ "survey"
+    )
+)
 
-cdf2 %>% ggplot(aes(x = abs(ncoefficients))) + 
-  geom_histogram(binwidth = 0.1) + 
-  facet_grid(var_type~., scales = "free_y") + 
-  scale_x_continuous(trans = "log1p") + 
+cdf2 %>% ggplot(aes(x = abs(ncoefficients))) +
+  geom_histogram(binwidth = 0.1) +
+  facet_grid(var_type ~ ., scales = "free_y") +
+  scale_x_continuous(trans = "log1p") +
   labs(x = "Variable importance")
 
 ```
@@ -449,10 +550,10 @@ Clearly, respondent_id are among the most important variables for explaining the
 
 ```{r}
 
-
-cdf2 %>% 
-  filter(var_type == "survey") %>% 
-  select(Variable=vname, "Effect on logit of increasing rating"=ncoefficients) %>% 
+cdf2 %>%
+  filter(var_type == "survey") %>%
+  select(Variable = vname,
+         "Effect on logit of increasing rating" = ncoefficients) %>%
   knitr::kable(row.names = FALSE) 
 
 
